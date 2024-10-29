@@ -1,53 +1,19 @@
 use iced::widget;
-use playersheet::PlayerSheet;
+use sheet::Character;
 
-mod playersheet;
+mod dialog;
+mod sheet;
 
 fn main() -> Result<(), Box<dyn core::error::Error>> {
-    let (playersheet, path) = playersheet::io::read_arg_or_create_or_open_dialog()?;
+    let (playersheet, path) = dialog::open_or_create()?;
     iced::application(title, update, view)
         .run_with(|| (State { path, playersheet }, iced::Task::none()))?;
     Ok(())
 }
 
-pub fn eframe_test() {
-    eframe::run_simple_native(
-        "Want to open or create a player sheet?",
-        eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default()
-                .with_inner_size(egui::Vec2 { x: 250.0, y: 250.0 }),
-            vsync: true,
-            multisampling: 0,
-            depth_buffer: 0,
-            stencil_buffer: 0,
-            hardware_acceleration: eframe::HardwareAcceleration::Off,
-            renderer: eframe::Renderer::default(),
-            run_and_return: true,
-            event_loop_builder: None,
-            window_builder: None,
-            shader_version: None,
-            centered: true,
-            persist_window: false,
-            persistence_path: None,
-            dithering: true,
-        },
-        |context, _frame| {
-            egui::CentralPanel::default().show(context, |ui| {
-                if ui.add(egui::Button::new("Open")).clicked() {
-                    context.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
-                if ui.add(egui::Button::new("Create")).clicked() {
-                    context.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
-            });
-        },
-    )
-    .ok();
-}
-
 struct State {
     path: std::path::PathBuf,
-    playersheet: PlayerSheet,
+    playersheet: Character,
 }
 
 impl std::fmt::Display for State {
@@ -74,3 +40,18 @@ fn view(state: &State) -> widget::Column<Message> {
         serde_json::to_string(&state.playersheet).unwrap(),
     ))
 }
+
+/*
+pub fn read_arg() -> Option<(Character, std::path::PathBuf)> {
+    let mut path = std::env::args_os().nth(1).map(std::path::PathBuf::from)?;
+    let sheet = io::read(&mut path).ok()?;
+    Some((sheet, path))
+}
+
+pub fn read_arg_or_create_or_open_dialog() -> Result<(Character, std::path::PathBuf), io::Error> {
+    if let Some(values) = read_arg() {
+        return Ok(values);
+    }
+    dialog::open_or_create()
+}
+*/

@@ -4,8 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eframe = "0.29.1"
-egui = "0.29.1"
 iced = "0.13.1"
 iced_aw = "0.11.0"
 non-empty-string = "0.2.5"
