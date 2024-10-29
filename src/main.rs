@@ -2,57 +2,47 @@ use iced::widget;
 use playersheet::PlayerSheet;
 
 mod playersheet;
-mod psheet_io;
 
 fn main() -> Result<(), Box<dyn core::error::Error>> {
-    iced::application::<(), u8, iced::Theme, iced::Renderer>(
-        |_state| "create or open".to_string(),
-        |_state, message| match message {
-            0 => iced::Task::none(),
-            1 => iced::Task::none(),
-            _ => iced::Task::none(),
-        },
-        |_state| {
-            iced::widget::row![
-                iced::widget::button("Open").on_press(0),
-                iced::widget::button("Create").on_press(1),
-            ]
-            .into()
-        },
-    )
-    .settings(iced::Settings::default())
-    .run_with(|| ((), iced::Task::none()))
-    .unwrap();
-
-    todo!();
-
-    let state = init_from_arg()
-        .or_else(init_from_dialog)
-        .ok_or(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Player sheet not selected",
-        ))?;
-    iced::application(title, update, view).run_with(|| (state, iced::Task::none()))?;
+    let (playersheet, path) = playersheet::io::read_arg_or_create_or_open_dialog()?;
+    iced::application(title, update, view)
+        .run_with(|| (State { path, playersheet }, iced::Task::none()))?;
     Ok(())
 }
 
-fn init_from_arg() -> Option<State> {
-    let path = std::env::args_os().nth(1)?;
-    let playersheet = psheet_io::read(&path).ok()?;
-    Some(State {
-        path: path.into(),
-        playersheet,
-    })
-}
-
-fn init_from_dialog() -> Option<State> {
-    let path = rfd::FileDialog::new()
-        .set_title("Open or create player sheet")
-        .add_filter(psheet_io::EXTENSION, psheet_io::EXTENSIONS)
-        .set_file_name("Stranger")
-        .save_file()?;
-    let playersheet = psheet_io::read(&path).ok()?;
-    Some(State { path, playersheet })
+pub fn eframe_test() {
+    eframe::run_simple_native(
+        "Want to open or create a player sheet?",
+        eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default()
+                .with_inner_size(egui::Vec2 { x: 250.0, y: 250.0 }),
+            vsync: true,
+            multisampling: 0,
+            depth_buffer: 0,
+            stencil_buffer: 0,
+            hardware_acceleration: eframe::HardwareAcceleration::Off,
+            renderer: eframe::Renderer::default(),
+            run_and_return: true,
+            event_loop_builder: None,
+            window_builder: None,
+            shader_version: None,
+            centered: true,
+            persist_window: false,
+            persistence_path: None,
+            dithering: true,
+        },
+        |context, _frame| {
+            egui::CentralPanel::default().show(context, |ui| {
+                if ui.add(egui::Button::new("Open")).clicked() {
+                    context.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+                if ui.add(egui::Button::new("Create")).clicked() {
+                    context.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            });
+        },
+    )
+    .ok();
 }
 
 struct State {
