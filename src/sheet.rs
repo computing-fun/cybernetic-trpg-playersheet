@@ -1,59 +1,33 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
-pub enum Error {
-    IO(std::io::Error),
-    Parse(serde_json::Error),
+use crate::archive::{Archivable, Archive};
+
+/// `Catalog` wraps different types of `Archive`, providing easy access to
+/// specific `Archivable` types based on file extension.
+#[derive(Debug, Clone)]
+pub enum Catalog {
+    Character(Archive<Character>),
+    Race(Archive<Race>),
+    Class(Archive<Class>),
 }
 
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::IO(error) => error.fmt(f),
-            Error::Parse(error) => error.fmt(f),
+impl Catalog {
+    /// Attempts to look up a path and return the appropriate `Catalog`
+    /// based on the file extension. Returns [`None`] if the extension does not match.
+    pub fn lookup<P>(path: P) -> Option<Self>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        match path
+            .as_ref()
+            .extension()
+            .and_then(|os_str| os_str.to_str())?
+        {
+            Character::EXTENSION => Some(Catalog::Character(Archive::new(path)?)),
+            Race::EXTENSION => Some(Catalog::Race(Archive::new(path)?)),
+            Class::EXTENSION => Some(Catalog::Class(Archive::new(path)?)),
+            _ => None,
         }
-    }
-}
-
-impl Error {
-    pub fn not_selected() -> Self {
-        Error::IO(std::io::Error::new(
-            std::io::ErrorKind::Interrupted,
-            "No file was selected",
-        ))
-    }
-}
-
-pub trait Sheet {
-    const EXTENSION: &'static str;
-}
-
-impl<T> SheetWritable for T where T: Sheet + Serialize {}
-pub trait SheetWritable: Sheet + Serialize {
-    fn write(&self, path: &mut std::path::PathBuf) -> Result<(), Error> {
-        path.set_extension(Self::EXTENSION);
-        let file = std::fs::File::create(path).map_err(Error::IO)?;
-        serde_json::to_writer(file, self).map_err(Error::Parse)
-    }
-}
-
-impl<T> SheetReadable for T where T: Sheet + DeserializeOwned {}
-pub trait SheetReadable: Sheet + DeserializeOwned {
-    fn read(path: &mut std::path::PathBuf) -> Result<Self, Error> {
-        path.set_extension(Self::EXTENSION);
-        let file = std::fs::File::open(path).map_err(Error::IO)?;
-        serde_json::from_reader(file).map_err(Error::Parse)
-    }
-}
-
-impl<T> SheetCreatable for T where T: SheetWritable + Default {}
-pub trait SheetCreatable: SheetWritable + Default {
-    fn create(path: &mut std::path::PathBuf) -> Result<Self, Error> {
-        let sheet = Self::default();
-        sheet.write(path)?;
-        Ok(sheet)
     }
 }
 
@@ -64,14 +38,14 @@ pub struct Character {
     pub class: Class,
 }
 
-impl Sheet for Character {
-    const EXTENSION: &'static str = "playersheet";
+impl Archivable for Character {
+    const EXTENSION: &'static str = "character-sheet";
 }
 
 impl Default for Character {
     fn default() -> Self {
         Self {
-            name: "Hero".to_string(),
+            name: "Unknown".to_string(),
             race: Default::default(),
             class: Default::default(),
         }
@@ -81,6 +55,10 @@ impl Default for Character {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Race {
     pub name: String,
+}
+
+impl Archivable for Race {
+    const EXTENSION: &'static str = "race-sheet";
 }
 
 impl Default for Race {
@@ -96,10 +74,14 @@ pub struct Class {
     pub name: String,
 }
 
+impl Archivable for Class {
+    const EXTENSION: &'static str = "class-sheet";
+}
+
 impl Default for Class {
     fn default() -> Self {
         Self {
-            name: "Classless".to_string(),
+            name: "Unknown".to_string(),
         }
     }
 }
