@@ -1,37 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::archive::{Archivable, Archive};
-
-/// `Catalog` wraps different types of `Archive`, providing easy access to
-/// specific `Archivable` types based on file extension.
-#[derive(Debug, Clone)]
-pub enum Catalog {
-    Character(Archive<Character>),
-    Race(Archive<Race>),
-    Class(Archive<Class>),
-}
-
-impl Catalog {
-    /// Attempts to look up a path and return the appropriate `Catalog`
-    /// based on the file extension. Returns [`None`] if the extension does not match.
-    pub fn lookup<P>(path: P) -> Option<Self>
-    where
-        P: AsRef<std::path::Path>,
-    {
-        match path
-            .as_ref()
-            .extension()
-            .and_then(|os_str| os_str.to_str())?
-        {
-            Character::EXTENSION => Some(Catalog::Character(Archive::new(path)?)),
-            Race::EXTENSION => Some(Catalog::Race(Archive::new(path)?)),
-            Class::EXTENSION => Some(Catalog::Class(Archive::new(path)?)),
-            _ => None,
-        }
-    }
-}
+use crate::book::Sheet;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(default, transparent)]
 pub struct Ability {
     score: isize,
 }
@@ -71,6 +43,7 @@ impl Ability {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct AbilityBlock {
     /// Strength measures bodily power, athletic training, and the extent to which you can exert raw physical force.
     pub strenght: Ability,
@@ -92,30 +65,53 @@ pub struct AbilityBlock {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct Character {
     pub name: String,
     pub description: String,
     pub speed: usize,
     pub race: Race,
+    #[serde(flatten)]
     pub ability: AbilityBlock,
     pub class: Vec<Class>,
 }
 
+impl Sheet for Character {
+    const TYPE: &'static str = "Character";
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct Race {
     pub name: String,
 }
 
+impl Sheet for Race {
+    const TYPE: &'static str = "Race";
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct Class {
     pub name: String,
     pub level: usize,
 }
 
+impl Sheet for Class {
+    const TYPE: &'static str = "Class";
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
 mod meta {
     use std::ops::{Add, Sub};
-
-    use crate::archive::Archivable;
 
     use super::*;
 
@@ -156,10 +152,6 @@ mod meta {
 
     // - Character -
 
-    impl Archivable for Character {
-        const EXTENSION: &'static str = "character-sheet";
-    }
-
     impl Default for Character {
         fn default() -> Self {
             Self {
@@ -175,10 +167,6 @@ mod meta {
 
     // - Race -
 
-    impl Archivable for Race {
-        const EXTENSION: &'static str = "race-sheet";
-    }
-
     impl Default for Race {
         fn default() -> Self {
             Self {
@@ -188,10 +176,6 @@ mod meta {
     }
 
     // - Class -
-
-    impl Archivable for Class {
-        const EXTENSION: &'static str = "class-sheet";
-    }
 
     impl Default for Class {
         fn default() -> Self {
