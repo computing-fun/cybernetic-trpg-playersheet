@@ -1,3 +1,4 @@
+use non_empty_string::NonEmptyString;
 use serde::{Deserialize, Serialize};
 
 use crate::book::Sheet;
@@ -42,7 +43,27 @@ impl Ability {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+impl Default for Ability {
+    fn default() -> Self {
+        Self::from_score(10)
+    }
+}
+
+impl std::ops::Add for Ability {
+    type Output = Ability;
+    fn add(self, rhs: Self) -> Self::Output {
+        Ability::from_score(self.score.saturating_add(rhs.score))
+    }
+}
+
+impl std::ops::Sub for Ability {
+    type Output = Ability;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Ability::from_score(self.score.saturating_sub(rhs.score))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(default)]
 pub struct AbilityBlock {
     /// Strength measures bodily power, athletic training, and the extent to which you can exert raw physical force.
@@ -67,122 +88,104 @@ pub struct AbilityBlock {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Character {
-    pub name: String,
+    pub name: NonEmptyString,
     pub description: String,
-    pub speed: usize,
     pub race: Race,
     #[serde(flatten)]
     pub ability: AbilityBlock,
     pub class: Vec<Class>,
+    pub cybernetics: Vec<Cybernetic>,
 }
 
 impl Sheet for Character {
     const TYPE: &'static str = "Character";
-    fn name(&self) -> String {
+    fn name(&self) -> NonEmptyString {
         self.name.clone()
+    }
+}
+
+impl Default for Character {
+    fn default() -> Self {
+        Self {
+            name: NonEmptyString::new(String::from("Stanger")).unwrap(),
+            description: Default::default(),
+            race: Default::default(),
+            ability: Default::default(),
+            class: Default::default(),
+            cybernetics: Default::default(),
+        }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Race {
-    pub name: String,
+    pub name: NonEmptyString,
+    pub speed: usize,
 }
 
 impl Sheet for Race {
     const TYPE: &'static str = "Race";
-    fn name(&self) -> String {
+    fn name(&self) -> NonEmptyString {
         self.name.clone()
+    }
+}
+
+impl Default for Race {
+    fn default() -> Self {
+        Self {
+            name: NonEmptyString::new(String::from("Unknown Race")).unwrap(),
+            speed: Default::default(),
+        }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Class {
-    pub name: String,
+    pub name: NonEmptyString,
     pub level: usize,
 }
 
 impl Sheet for Class {
     const TYPE: &'static str = "Class";
-    fn name(&self) -> String {
+    fn name(&self) -> NonEmptyString {
         self.name.clone()
     }
 }
 
-mod meta {
-    use std::ops::{Add, Sub};
-
-    use super::*;
-
-    // - Ability - AbilityBlock -
-
-    impl Default for Ability {
-        fn default() -> Self {
-            Self::from_score(10)
+impl Default for Class {
+    fn default() -> Self {
+        Self {
+            name: NonEmptyString::new(String::from("Unknown Class")).unwrap(),
+            level: Default::default(),
         }
     }
+}
 
-    impl Add for Ability {
-        type Output = Ability;
-        fn add(self, rhs: Self) -> Self::Output {
-            Ability::from_score(self.score.saturating_add(rhs.score))
-        }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
+pub struct Cybernetic {
+    pub name: NonEmptyString,
+    pub cost: usize,
+    pub part: String,
+    pub tag: String,
+}
+
+impl Sheet for Cybernetic {
+    const TYPE: &'static str = "Cybernetic";
+    fn name(&self) -> NonEmptyString {
+        self.name.clone()
     }
+}
 
-    impl Sub for Ability {
-        type Output = Ability;
-        fn sub(self, rhs: Self) -> Self::Output {
-            Ability::from_score(self.score.saturating_sub(rhs.score))
-        }
-    }
-
-    impl Default for AbilityBlock {
-        fn default() -> Self {
-            Self {
-                strenght: Default::default(),
-                dexterity: Default::default(),
-                constitution: Default::default(),
-                intellignce: Default::default(),
-                wisdom: Default::default(),
-                charisma: Default::default(),
-            }
-        }
-    }
-
-    // - Character -
-
-    impl Default for Character {
-        fn default() -> Self {
-            Self {
-                name: "Unknown".to_string(),
-                race: Default::default(),
-                class: Default::default(),
-                description: Default::default(),
-                speed: 30,
-                ability: Default::default(),
-            }
-        }
-    }
-
-    // - Race -
-
-    impl Default for Race {
-        fn default() -> Self {
-            Self {
-                name: "Unknown".to_string(),
-            }
-        }
-    }
-
-    // - Class -
-
-    impl Default for Class {
-        fn default() -> Self {
-            Self {
-                name: "Unknown".to_string(),
-                level: 0,
-            }
+impl Default for Cybernetic {
+    fn default() -> Self {
+        Self {
+            name: NonEmptyString::new(String::from("Unidentified Cybernetic")).unwrap(),
+            cost: Default::default(),
+            part: Default::default(),
+            tag: Default::default(),
         }
     }
 }

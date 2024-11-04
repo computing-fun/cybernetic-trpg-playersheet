@@ -1,20 +1,32 @@
 use std::{error::Error, fmt::Display, path::Path};
 
+use non_empty_string::NonEmptyString;
 use redb::{
-    CommitError, Database, DatabaseError, StorageError, TableDefinition, TableError,
+    CommitError, Database, DatabaseError, ReadableTable, StorageError, TableDefinition, TableError,
     TransactionError,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
 pub struct Book {
+    name: String,
     content: Database,
 }
 
 impl Book {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, DatabaseError> {
         Ok(Self {
+            name: path
+                .as_ref()
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             content: Database::create(path)?,
         })
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 
     pub fn read<S>(&self, name: &str) -> Result<S, BookError>
@@ -43,6 +55,20 @@ impl Book {
         }
         wt.commit()?;
         Ok(())
+    }
+
+    pub fn table_of_contents<S>(&self) -> Result<Vec<String>, BookError>
+    where
+        S: Sheet,
+    {
+        Ok(self
+            .content
+            .begin_read()?
+            .open_table(S::TABLE_DEFINITION)?
+            .iter()?
+            .flatten()
+            .map(|sheet| sheet.0.value())
+            .collect())
     }
 }
 
@@ -113,5 +139,5 @@ pub trait Sheet: Serialize + DeserializeOwned {
     const TYPE: &'static str;
     const TABLE_DEFINITION: TableDefinition<'static, String, String> =
         TableDefinition::new(Self::TYPE);
-    fn name(&self) -> String;
+    fn name(&self) -> NonEmptyString;
 }
