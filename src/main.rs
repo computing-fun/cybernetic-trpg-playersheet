@@ -22,7 +22,7 @@ fn main() -> ExitCode {
         .to_string(),
     };
 
-    let book = match Book::open("book_path") {
+    let book = match Book::open(book_path) {
         Ok(book) => book,
         Err(err) => {
             view::error(err);
