@@ -1,9 +1,10 @@
 use std::{cell::RefCell, error::Error, fmt::Debug, path::PathBuf, rc::Rc};
 
 use gtk4::{
-    glib::ExitCode, prelude::*, Application, ApplicationWindow, Box, Button, Entry, Label, ListBox,
-    ListBoxRow, Orientation, ScrolledWindow, Separator, SpinButton,
+    glib::ExitCode, prelude::*, Align, Application, ApplicationWindow, Box, Button, Entry,
+    GestureClick, Label, ListBox, ListBoxRow, Orientation, ScrolledWindow, Separator, SpinButton,
 };
+use non_empty_string::NonEmptyString;
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 
 use crate::{
@@ -79,21 +80,23 @@ pub fn open_or_create_book() -> Option<PathBuf> {
 }
 
 #[derive(Debug, Clone)]
-pub enum MainMenuOptions {
-    CharacterEditor(Character),
-    RaceEditor(Race),
-    ClassEditor(Class),
-    CyberneticEditor(Cybernetic),
+pub enum MainMenuResult {
+    CharacterEditor(Option<String>),
+    RaceEditor(Option<String>),
+    ClassEditor(Option<String>),
+    CyberneticEditor(Option<String>),
 }
 
-pub fn main_menu(book: Rc<Book>) -> Option<MainMenuOptions> {
-    let result: Rc<RefCell<Option<MainMenuOptions>>> = Rc::new(RefCell::new(None));
+pub fn main_menu(book: Rc<Book>) -> Option<MainMenuResult> {
+    let result: Rc<RefCell<Option<MainMenuResult>>> = Rc::new(RefCell::new(None));
     let result_ref = Rc::clone(&result);
     let app = Application::builder().application_id(APP_ID).build();
     app.connect_activate(move |app| {
         let window = ApplicationWindow::builder()
             .application(app)
             .title(book.name())
+            .default_width(720)
+            .default_height(480)
             .build();
         let window_child = Box::new(Orientation::Horizontal, 10);
         window.set_child(Some(&window_child));
@@ -114,24 +117,52 @@ pub fn main_menu(book: Rc<Book>) -> Option<MainMenuOptions> {
         content_window.set_child(Some(&content));
         window_child.append(&content_window);
 
-        for (name, list) in [
+        type SelectAction = fn(String) -> MainMenuResult;
+
+        fn character_select(name: String) -> MainMenuResult {
+            MainMenuResult::CharacterEditor(Some(name))
+        }
+
+        fn race_select(name: String) -> MainMenuResult {
+            MainMenuResult::RaceEditor(Some(name))
+        }
+
+        fn class_select(name: String) -> MainMenuResult {
+            MainMenuResult::ClassEditor(Some(name))
+        }
+
+        fn cybernetic_select(name: String) -> MainMenuResult {
+            MainMenuResult::CyberneticEditor(Some(name))
+        }
+
+        [
             (
                 "Characters",
                 book.table_of_contents::<Character>().unwrap_or_default(),
+                MainMenuResult::CharacterEditor(None),
+                character_select as SelectAction,
             ),
             (
                 "Races",
                 book.table_of_contents::<Race>().unwrap_or_default(),
+                MainMenuResult::RaceEditor(None),
+                race_select as SelectAction,
             ),
             (
                 "Classes",
                 book.table_of_contents::<Class>().unwrap_or_default(),
+                MainMenuResult::ClassEditor(None),
+                class_select as SelectAction,
             ),
             (
                 "Cybernetics",
                 book.table_of_contents::<Cybernetic>().unwrap_or_default(),
+                MainMenuResult::CyberneticEditor(None),
+                cybernetic_select as SelectAction,
             ),
-        ] {
+        ]
+        .into_iter()
+        .for_each(|(name, list, create_result, select_action)| {
             let sidebar_btn = Button::new();
             sidebar_btn.set_label(name);
             sidebar_btn.set_has_frame(false);
@@ -151,20 +182,15 @@ pub fn main_menu(book: Rc<Book>) -> Option<MainMenuOptions> {
             let header_new_btn = Button::new();
             header_new_btn.set_label("Create");
             header_new_btn.set_has_frame(false);
-            header.append(&header_new_btn);
 
-            let header_new_name = Entry::new();
-            header_new_name.set_placeholder_text(Some("Enter name here!"));
-            header_new_name.set_visible(false);
-            header.append(&header_new_name);
-
+            let result_ref_clicked = Rc::clone(&result_ref);
+            let window_ref = window.clone();
             header_new_btn.connect_clicked(move |_btn| {
-                if !header_new_name.get_visible() {
-                    header_new_name.set_visible(true);
-                    header_new_name.grab_focus();
-                    return;
-                }
+                *result_ref_clicked.borrow_mut() = Some(create_result.clone());
+                window_ref.close();
             });
+
+            header.append(&header_new_btn);
 
             content.append(&header);
 
@@ -176,13 +202,21 @@ pub fn main_menu(book: Rc<Book>) -> Option<MainMenuOptions> {
             });
 
             for item in list {
-                let label = Label::new(Some(&item));
-                content.append(&label);
+                let btn = Button::new();
+                btn.set_label(&item);
+                btn.set_has_frame(false);
+                let result_ref_clicked = Rc::clone(&result_ref);
+                let window_ref = window.clone();
+                btn.connect_clicked(move |_btn| {
+                    *result_ref_clicked.borrow_mut() = Some(select_action(item.to_string()));
+                    window_ref.close();
+                });
+                content.append(&btn);
             }
 
             let separator = Separator::new(Orientation::Horizontal);
             content.append(&separator);
-        }
+        });
 
         window.show();
     });
@@ -192,22 +226,98 @@ pub fn main_menu(book: Rc<Book>) -> Option<MainMenuOptions> {
     }
 }
 
-pub fn cybernetics_editor(book: Rc<Book>, cybernetic_name: String) -> ExitCode {
+pub fn cybernetics_editor(book: Rc<Book>, name: Option<String>) -> ExitCode {
     let app = Application::builder().application_id(APP_ID).build();
     app.connect_activate(move |app| {
-        let cybernetic = book.read::<Cybernetic>(&cybernetic_name).unwrap();
-
         let window = ApplicationWindow::builder()
             .application(app)
-            .title(cybernetic.name.to_string())
+            .title("Cybernetics Lab")
+            .default_width(720)
+            .default_height(480)
             .build();
         let window_child = Box::new(Orientation::Vertical, 10);
+        window_child.set_margin_top(10);
+        window_child.set_margin_bottom(10);
+        window_child.set_margin_start(10);
+        window_child.set_margin_end(10);
+        window_child.set_halign(Align::Center);
         window.set_child(Some(&window_child));
 
-        let tag = Entry::new();
-        tag.set_text(&cybernetic.tag);
+        let window_ref = window.clone();
+        let cybernetic = match &name {
+            Some(name) => match book.read::<Cybernetic>(name) {
+                Ok(cybernetic) => cybernetic,
+                Err(err) => {
+                    window_ref.show();
+                    window_ref.close();
+                    error(err);
+                    return;
+                }
+            },
+            None => Cybernetic::default(),
+        };
 
+        let name = Box::new(Orientation::Horizontal, 10);
+        window_child.append(&name);
+
+        let name_label = Label::new(Some("Name"));
+        name.append(&name_label);
+
+        let name_input = Entry::new();
+        name_input.set_text(cybernetic.name.as_str());
+        name.append(&name_input);
+
+        let cost = Box::new(Orientation::Horizontal, 10);
+        window_child.append(&cost);
+
+        let cost_label = Label::new(Some("Point cost"));
+        cost.append(&cost_label);
+
+        let cost_input = SpinButton::with_range(0.0, 10.0, 1.0);
+        cost_input.set_value(cybernetic.cost as f64);
+        cost.append(&cost_input);
+
+        let part = Box::new(Orientation::Horizontal, 10);
+        window_child.append(&part);
+
+        let part_label = Label::new(Some("Body Part"));
+        part.append(&part_label);
+
+        let part_input = Entry::new();
+        part_input.set_text(&cybernetic.part);
+        part.append(&part_input);
+
+        let tag = Box::new(Orientation::Horizontal, 10);
         window_child.append(&tag);
+
+        let tag_label = Label::new(Some("Tag"));
+        tag.append(&tag_label);
+
+        let tag_input = Entry::new();
+        tag_input.set_text(&cybernetic.tag);
+        tag.append(&tag_input);
+
+        let save_btn = Button::new();
+        save_btn.set_label("Save and Exit");
+        let book_holder = Rc::clone(&book);
+        let window_ref = window.clone();
+        save_btn.connect_clicked(move |_btn| {
+            let updated = Cybernetic {
+                name: NonEmptyString::new(name_input.text().to_string()).unwrap(),
+                cost: cost_input.value() as usize,
+                part: part_input.text().to_string(),
+                tag: tag_input.text().to_string(),
+            };
+            match book_holder.write(&updated) {
+                Ok(_) => {
+                    window_ref.close();
+                }
+                Err(err) => {
+                    error(err);
+                }
+            };
+        });
+        window_child.append(&save_btn);
 
         window.show();
     });

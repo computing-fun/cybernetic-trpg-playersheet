@@ -29,10 +29,12 @@ fn main() -> ExitCode {
 
     while let Some(menu_opt) = view::main_menu(Rc::clone(&book)) {
         match menu_opt {
-            view::MainMenuOptions::CharacterEditor(character) => {}
-            view::MainMenuOptions::RaceEditor(race) => {}
-            view::MainMenuOptions::ClassEditor(class) => {}
-            view::MainMenuOptions::CyberneticEditor(cybernetic) => {}
+            view::MainMenuResult::CharacterEditor(character) => {}
+            view::MainMenuResult::RaceEditor(race) => {}
+            view::MainMenuResult::ClassEditor(class) => {}
+            view::MainMenuResult::CyberneticEditor(cybernetic) => {
+                view::cybernetics_editor(Rc::clone(&book), cybernetic);
+            }
         }
     }
 
