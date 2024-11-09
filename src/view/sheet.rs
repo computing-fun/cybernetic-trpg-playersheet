@@ -1,0 +1,109 @@
+use std::rc::Rc;
+
+use gtk4::{
+    glib::ExitCode, prelude::*, Align, Application, ApplicationWindow, Box, Button, Entry, Label,
+    Orientation, SpinButton,
+};
+use non_empty_string::NonEmptyString;
+
+use crate::{book::Book, sheet::Cybernetic};
+
+use super::{error, APP_ID};
+
+pub fn cybernetics_editor(book: Rc<Book>, name: Option<String>) -> ExitCode {
+    let app = Application::builder().application_id(APP_ID).build();
+    app.connect_activate(move |app| {
+        let window = ApplicationWindow::builder()
+            .application(app)
+            .title("Cybernetics Lab")
+            .default_width(720)
+            .default_height(480)
+            .build();
+        let window_child = Box::new(Orientation::Vertical, 10);
+        window_child.set_margin_top(10);
+        window_child.set_margin_bottom(10);
+        window_child.set_margin_start(10);
+        window_child.set_margin_end(10);
+        window_child.set_halign(Align::Center);
+        window.set_child(Some(&window_child));
+
+        let window_ref = window.clone();
+        let cybernetic = match &name {
+            Some(name) => match book.read::<Cybernetic>(name) {
+                Ok(cybernetic) => cybernetic,
+                Err(err) => {
+                    window_ref.show();
+                    window_ref.close();
+                    error(err);
+                    return;
+                }
+            },
+            None => Cybernetic::default(),
+        };
+
+        let name = Box::new(Orientation::Horizontal, 10);
+        window_child.append(&name);
+
+        let name_label = Label::new(Some("Name"));
+        name.append(&name_label);
+
+        let name_input = Entry::new();
+        name_input.set_text(cybernetic.name.as_str());
+        name.append(&name_input);
+
+        let cost = Box::new(Orientation::Horizontal, 10);
+        window_child.append(&cost);
+
+        let cost_label = Label::new(Some("Point cost"));
+        cost.append(&cost_label);
+
+        let cost_input = SpinButton::with_range(0.0, 10.0, 1.0);
+        cost_input.set_value(cybernetic.cost as f64);
+        cost.append(&cost_input);
+
+        let part = Box::new(Orientation::Horizontal, 10);
+        window_child.append(&part);
+
+        let part_label = Label::new(Some("Body Part"));
+        part.append(&part_label);
+
+        let part_input = Entry::new();
+        part_input.set_text(&cybernetic.part);
+        part.append(&part_input);
+
+        let tag = Box::new(Orientation::Horizontal, 10);
+        window_child.append(&tag);
+
+        let tag_label = Label::new(Some("Tag"));
+        tag.append(&tag_label);
+
+        let tag_input = Entry::new();
+        tag_input.set_text(&cybernetic.tag);
+        tag.append(&tag_input);
+
+        let save_btn = Button::new();
+        save_btn.set_label("Save and Exit");
+        let book_holder = Rc::clone(&book);
+        let window_ref = window.clone();
+        save_btn.connect_clicked(move |_btn| {
+            let updated = Cybernetic {
+                name: NonEmptyString::new(name_input.text().to_string()).unwrap(),
+                cost: cost_input.value() as usize,
+                part: part_input.text().to_string(),
+                tag: tag_input.text().to_string(),
+            };
+            match book_holder.write(&updated) {
+                Ok(_) => {
+                    window_ref.close();
+                }
+                Err(err) => {
+                    error(err);
+                }
+            };
+        });
+        window_child.append(&save_btn);
+
+        window.show();
+    });
+    app.run()
+}

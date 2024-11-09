@@ -27,13 +27,14 @@ fn main() -> ExitCode {
         }
     });
 
-    while let Some(menu_opt) = view::main_menu(Rc::clone(&book)) {
+    while let Some(menu_opt) = view::book::full(Rc::clone(&book)) {
         match menu_opt {
-            view::MainMenuResult::CharacterEditor(character) => {}
-            view::MainMenuResult::RaceEditor(race) => {}
-            view::MainMenuResult::ClassEditor(class) => {}
-            view::MainMenuResult::CyberneticEditor(cybernetic) => {
-                view::cybernetics_editor(Rc::clone(&book), cybernetic);
+            view::ViewSwitcher::BookFull => {}
+            view::ViewSwitcher::CharacterEditor(character) => {}
+            view::ViewSwitcher::RaceEditor(race) => {}
+            view::ViewSwitcher::ClassEditor(class) => {}
+            view::ViewSwitcher::CyberneticEditor(cybernetic) => {
+                view::sheet::cybernetics_editor(Rc::clone(&book), cybernetic);
             }
         }
     }

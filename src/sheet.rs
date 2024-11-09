@@ -92,7 +92,7 @@ pub struct Character {
     pub description: String,
     pub race: Race,
     #[serde(flatten)]
-    pub ability: AbilityBlock,
+    pub ability_base: AbilityBlock,
     pub class: Vec<Class>,
     pub cybernetics: Vec<Cybernetic>,
 }
@@ -110,7 +110,7 @@ impl Default for Character {
             name: NonEmptyString::new(String::from("Stanger")).unwrap(),
             description: Default::default(),
             race: Default::default(),
-            ability: Default::default(),
+            ability_base: Default::default(),
             class: Default::default(),
             cybernetics: Default::default(),
         }
@@ -121,7 +121,13 @@ impl Default for Character {
 #[serde(default)]
 pub struct Race {
     pub name: NonEmptyString,
+    pub info: String,
+    pub ability: AbilityBlock,
+    pub age: String,
+    pub size: Vec<String>,
     pub speed: usize,
+    pub languages: Vec<String>,
+    // sub race
 }
 
 impl Sheet for Race {
@@ -136,6 +142,11 @@ impl Default for Race {
         Self {
             name: NonEmptyString::new(String::from("Unknown Race")).unwrap(),
             speed: Default::default(),
+            ability: Default::default(),
+            info: Default::default(),
+            age: Default::default(),
+            size: vec![],
+            languages: vec![],
         }
     }
 }

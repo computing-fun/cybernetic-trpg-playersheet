@@ -33,31 +33,29 @@ impl Book {
     where
         S: Sheet,
     {
-        let rt = self.content.begin_read()?;
-        let table = rt.open_table(S::TABLE_DEFINITION)?;
-        let json = table
-            .get(name.to_string())?
-            .ok_or(BookError::NotFound(name.to_string()))?
-            .value();
-        let sheet = serde_json::from_str(&json)?;
-        Ok(sheet)
+        Ok(serde_json::from_str(
+            &self
+                .content
+                .begin_read()?
+                .open_table(S::TABLE_DEFINITION)?
+                .get(name.to_string())?
+                .ok_or(BookError::NotFound(name.to_string()))?
+                .value(),
+        )?)
     }
 
     pub fn write<S>(&self, sheet: &S) -> Result<(), BookError>
     where
         S: Sheet,
     {
-        let json = serde_json::to_string(sheet)?;
         let wt = self.content.begin_write()?;
-        {
-            let mut table = wt.open_table(S::TABLE_DEFINITION)?;
-            table.insert(sheet.name(), json)?;
-        }
+        wt.open_table(S::TABLE_DEFINITION)?
+            .insert(sheet.name(), serde_json::to_string(sheet)?)?;
         wt.commit()?;
         Ok(())
     }
 
-    pub fn table_of_contents<S>(&self) -> Result<Vec<String>, BookError>
+    pub fn table_of_contents<S>(&self) -> Result<Vec<Result<String, BookError>>, BookError>
     where
         S: Sheet,
     {
@@ -66,9 +64,28 @@ impl Book {
             .begin_read()?
             .open_table(S::TABLE_DEFINITION)?
             .iter()?
-            .flatten()
-            .map(|sheet| sheet.0.value())
+            .map(|sheet| sheet.map(|ok| ok.0.value()).map_err(BookError::Storage))
             .collect())
+    }
+
+    pub fn section<S>(&self) -> Result<Vec<Result<S, BookError>>, BookError>
+    where
+        S: Sheet,
+    {
+        Ok(self
+            .content
+            .begin_read()?
+            .open_table(S::TABLE_DEFINITION)?
+            .iter()?
+            .map(|table_access| {
+                table_access
+                    .map(|ok| ok.1.value())
+                    .map_err(BookError::Storage)
+            })
+            .map(|table_value| {
+                table_value.and_then(|data| serde_json::from_str(&data).map_err(BookError::Parse))
+            })
+            .collect::<Vec<Result<S, BookError>>>())
     }
 }
 
