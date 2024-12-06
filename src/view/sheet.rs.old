@@ -6,7 +6,7 @@ use gtk4::{
 };
 use non_empty_string::NonEmptyString;
 
-use crate::{book::Book, sheet::Cybernetic};
+use crate::{book::Book, book::Cybernetic};
 
 use super::{error, APP_ID};
 
@@ -29,7 +29,7 @@ pub fn cybernetics_editor(book: Rc<Book>, name: Option<String>) -> ExitCode {
 
         let window_ref = window.clone();
         let cybernetic = match &name {
-            Some(name) => match book.read::<Cybernetic>(name) {
+            Some(name) => match book.read::<Cybernetic>(name.to_owned()) {
                 Ok(cybernetic) => cybernetic,
                 Err(err) => {
                     window_ref.show();

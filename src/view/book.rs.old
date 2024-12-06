@@ -7,7 +7,7 @@ use gtk4::{
 
 use crate::{
     book::{Book, Sheet},
-    sheet::{Character, Class, Cybernetic, Race},
+    book::{Character, Cybernetic, Race},
 };
 
 use super::{ViewSwitcher, APP_ID};
@@ -155,17 +155,17 @@ pub fn full(book: Rc<Book>) -> Option<ViewSwitcher> {
                     .append(&Label::new(Some(&serde_json::json!(&sheet).to_string())));
             },
         );
-
-        helper.add_sheet_section(
-            "Classes",
-            |_btn| {},
-            |helper, sheet: Class| {
-                helper
-                    .content
-                    .append(&Label::new(Some(&serde_json::json!(&sheet).to_string())));
-            },
-        );
-
+        /*
+               helper.add_sheet_section(
+                   "Classes",
+                   |_btn| {},
+                   |helper, sheet: ClassDefine| {
+                       helper
+                           .content
+                           .append(&Label::new(Some(&serde_json::json!(&sheet).to_string())));
+                   },
+               );
+        */
         helper.add_sheet_section(
             "Cybernetics",
             |_btn| {},

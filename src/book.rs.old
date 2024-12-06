@@ -29,19 +29,15 @@ impl Book {
         self.name.clone()
     }
 
-    pub fn read<S>(&self, name: &str) -> Result<S, BookError>
+    pub fn read<S>(&self, name: String) -> Result<S, BookError>
     where
         S: Sheet,
     {
-        Ok(serde_json::from_str(
-            &self
-                .content
-                .begin_read()?
-                .open_table(S::TABLE_DEFINITION)?
-                .get(name.to_string())?
-                .ok_or(BookError::NotFound(name.to_string()))?
-                .value(),
-        )?)
+        let rt = self.content.begin_read()?;
+        let table = rt.open_table(S::TABLE_DEFINITION)?;
+        let access = table.get(name)?.ok_or(BookError::NotFound)?;
+        let json = access.value();
+        Ok(serde_json::from_str(&json)?)
     }
 
     pub fn write<S>(&self, sheet: &S) -> Result<(), BookError>
@@ -51,8 +47,7 @@ impl Book {
         let wt = self.content.begin_write()?;
         wt.open_table(S::TABLE_DEFINITION)?
             .insert(sheet.name(), serde_json::to_string(sheet)?)?;
-        wt.commit()?;
-        Ok(())
+        Ok(wt.commit()?)
     }
 
     pub fn table_of_contents<S>(&self) -> Result<Vec<Result<String, BookError>>, BookError>
@@ -95,7 +90,7 @@ pub enum BookError {
     Transaction(TransactionError),
     Table(TableError),
     Storage(StorageError),
-    NotFound(String),
+    NotFound,
     Parse(serde_json::Error),
     Commit(CommitError),
 }
@@ -109,7 +104,7 @@ impl Display for BookError {
             BookError::Transaction(err) => write!(f, "Transaction error: {}", err),
             BookError::Table(err) => write!(f, "Table error: {}", err),
             BookError::Storage(err) => write!(f, "Storage error: {}", err),
-            BookError::NotFound(err) => write!(f, "Not Found error: {}", err),
+            BookError::NotFound => write!(f, "Not Found error"),
             BookError::Parse(err) => write!(f, "Parse error: {}", err),
             BookError::Commit(err) => write!(f, "Commit error: {}", err),
         }

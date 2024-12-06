@@ -1,10 +1,13 @@
 use std::{path::PathBuf, rc::Rc};
 
-use book::Book;
+use book::{
+    class::{CharacterClass, Class},
+    Book,
+};
 use gtk4::glib::ExitCode;
+use non_empty_string::NonEmptyString;
 
 mod book;
-mod sheet;
 mod view;
 
 fn main() -> ExitCode {
@@ -15,29 +18,9 @@ fn main() -> ExitCode {
             // this means the user didn't pick a book to open.
             None => return ExitCode::SUCCESS,
         };
-        if !path.set_extension("book") {
-            return ExitCode::FAILURE;
-        }
-        match Book::open(path) {
-            Ok(book) => book,
-            Err(err) => {
-                view::error(err);
-                return ExitCode::FAILURE;
-            }
-        }
-    });
 
-    while let Some(menu_opt) = view::book::full(Rc::clone(&book)) {
-        match menu_opt {
-            view::ViewSwitcher::BookFull => {}
-            view::ViewSwitcher::CharacterEditor(character) => {}
-            view::ViewSwitcher::RaceEditor(race) => {}
-            view::ViewSwitcher::ClassEditor(class) => {}
-            view::ViewSwitcher::CyberneticEditor(cybernetic) => {
-                view::sheet::cybernetics_editor(Rc::clone(&book), cybernetic);
-            }
-        }
-    }
+        Book::read(path)
+    });
 
     return ExitCode::SUCCESS;
 }

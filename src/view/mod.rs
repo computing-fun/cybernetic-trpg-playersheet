@@ -1,6 +1,3 @@
-pub mod book;
-pub mod sheet;
-
 use std::{error::Error, fmt::Debug, path::PathBuf};
 
 use gtk4::prelude::*;
@@ -8,6 +5,7 @@ use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult, Messag
 
 pub const APP_ID: &str = "org.computingfun.cybernetic-trpg";
 
+#[allow(dead_code)]
 pub fn error<E>(err: E)
 where
     E: Error,
@@ -71,13 +69,4 @@ pub fn open_or_create_book() -> Option<PathBuf> {
         }
     };
     return None;
-}
-
-#[derive(Debug, Clone)]
-pub enum ViewSwitcher {
-    BookFull,
-    CharacterEditor(Option<String>),
-    RaceEditor(Option<String>),
-    ClassEditor(Option<String>),
-    CyberneticEditor(Option<String>),
 }
