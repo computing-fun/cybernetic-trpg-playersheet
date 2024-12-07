@@ -3,18 +3,16 @@ pub mod class;
 mod lua_object;
 
 use std::{
-    error::Error,
     fs::File,
-    io::{self, Read},
-    path::Path,
+    io::{self, Write},
+    path::{Path, PathBuf},
 };
 
 use class::{Balance, CharacterClass, Class};
-use lua_object::FromLua;
+use lua_object::FromLuaChunk;
 use non_empty_string::NonEmptyString;
 use serde::{Deserialize, Serialize};
-use serde_json::to_string;
-use tar::{Archive, Entries, Entry};
+use zip::{read::ZipFile, result::ZipError, ZipArchive};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
@@ -83,120 +81,193 @@ impl Default for Cybernetic {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Book {
     pub errors: Vec<String>,
     pub class: Vec<Class>,
     pub balance: Vec<Balance>,
 }
 
-impl Book {
-    pub fn read<P>(path: P) -> Result<Self, Box<dyn std::error::Error>>
-    where
-        P: AsRef<Path>,
-    {
-        let mut book = Book::default();
-        let file = File::open(path)?;
-        let mut archive = Archive::new(file);
-        let entries = archive.entries()?;
-        entries.for_each(|entry_result| book.read_entry_result(entry_result));
-        Ok(book)
-    }
+pub const DEFAULT_BOOK_BYTES: &[u8] =
+    include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/base_game.zip"));
 
-    fn read_entry_result(&mut self, entry_result: Result<Entry<File>, io::Error>) {
-        match entry_result {
-            Ok(mut entry) => self.read_entry(&mut entry),
-            Err(err) => self.errors.push(err.to_string()),
+impl Default for Book {
+    fn default() -> Self {
+        match ZipArchive::new(io::Cursor::new(DEFAULT_BOOK_BYTES)) {
+            Ok(mut archive) => Book::from(&mut archive),
+            Err(_) => Book::new_empty(),
+        }
+    }
+}
+
+pub fn write_default_book(path: &Path) -> Result<Book, ZipBookError> {
+    File::create_new(path)?.write(DEFAULT_BOOK_BYTES)?;
+    Ok(Book::default())
+}
+
+impl Book {
+    pub fn new_empty() -> Self {
+        Self {
+            errors: vec![],
+            class: vec![],
+            balance: vec![],
         }
     }
 
-    fn read_entry(&mut self, entry: &mut Entry<File>) {
-        let name_ext = match read_name_ext(&entry) {
-            Ok(name_ext) => name_ext,
+    fn read_zip_file(&mut self, file: &mut ZipFile) {
+        let meta = match FileMeta::from(file) {
+            Ok(fm) => fm,
             Err(err) => {
                 self.errors.push(err);
                 return;
             }
         };
 
-        match name_ext.extension.as_str() {
-            "class" => self.read_class(entry, name_ext.name),
-            "balance" => self.read_balance(entry, name_ext.name),
-            _ => self.errors.push(String::from("Could not read ext.")),
+        match meta.format.as_str() {
+            "lua" => {}
+            _ => self.errors.push(format!("Not supported format.")),
         }
-    }
 
-    fn read_class(&mut self, entry: &mut Entry<File>, name: NonEmptyString) {
-        match read_chunk_lua(entry, name) {
-            Ok(value) => self.class.push(value),
-            Err(err) => self.errors.push(err),
-        }
-    }
-
-    fn read_balance(&mut self, entry: &mut Entry<File>, name: NonEmptyString) {
-        match read_chunk_lua(entry, name) {
-            Ok(value) => self.balance.push(value),
-            Err(err) => self.errors.push(err),
+        match meta.extension.as_str() {
+            "class" => match Class::from_lua_chunk(meta.name, meta.content.as_bytes()) {
+                Ok(value) => self.class.push(value),
+                Err(err) => self.errors.push(err.to_string()),
+            },
+            "balance" => match Balance::from_lua_chunk(meta.name, meta.content.as_bytes()) {
+                Ok(value) => self.balance.push(value),
+                Err(err) => self.errors.push(err.to_string()),
+            },
+            _ => self.errors.push(format!("Not supported type.")),
         }
     }
 }
 
-struct NameExt {
-    name: NonEmptyString,
+#[derive(Debug)]
+pub enum ZipBookError {
+    IO(io::Error),
+    Zip(ZipError),
+}
+
+impl std::error::Error for ZipBookError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ZipBookError::IO(error) => error.source(),
+            ZipBookError::Zip(zip_error) => zip_error.source(),
+        }
+    }
+}
+
+impl std::fmt::Display for ZipBookError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ZipBookError::IO(error) => error.fmt(f),
+            ZipBookError::Zip(zip_error) => zip_error.fmt(f),
+        }
+    }
+}
+
+impl From<io::Error> for ZipBookError {
+    fn from(value: io::Error) -> Self {
+        ZipBookError::IO(value)
+    }
+}
+
+impl From<ZipError> for ZipBookError {
+    fn from(value: ZipError) -> Self {
+        ZipBookError::Zip(value)
+    }
+}
+
+impl TryFrom<&Path> for Book {
+    type Error = ZipBookError;
+    fn try_from(value: &Path) -> Result<Self, Self::Error> {
+        Self::try_from(File::open(value)?)
+    }
+}
+
+impl TryFrom<PathBuf> for Book {
+    type Error = ZipBookError;
+    fn try_from(value: PathBuf) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_path())
+    }
+}
+
+impl TryFrom<File> for Book {
+    type Error = ZipBookError;
+    fn try_from(value: File) -> Result<Self, Self::Error> {
+        Ok(Self::from(&mut ZipArchive::new(value)?))
+    }
+}
+
+impl<R: io::Read + io::Seek> From<&mut ZipArchive<R>> for Book {
+    fn from(value: &mut ZipArchive<R>) -> Self {
+        let mut book = Self::new_empty();
+        for file_number in 0..value.len() {
+            match value.by_index(file_number) {
+                Ok(mut file) => {
+                    if file.is_file() {
+                        book.read_zip_file(&mut file)
+                    }
+                }
+                Err(err) => book.errors.push(err.to_string()),
+            };
+        }
+        book
+    }
+}
+
+#[derive(Debug)]
+struct FileMeta {
+    format: NonEmptyString,
     extension: NonEmptyString,
+    name: NonEmptyString,
+    content: NonEmptyString,
 }
 
-fn read_name_ext(entry: &Entry<File>) -> Result<NameExt, String> {
-    let full_path = match entry.path() {
-        Ok(path) => path,
-        Err(err) => return Err(err.to_string()),
-    };
+impl FileMeta {
+    fn from(file: &mut ZipFile) -> Result<Self, String> {
+        let enclosed_name = file
+            .enclosed_name()
+            .ok_or_else(|| format!("File name not valid."))?;
 
-    let file_stem_opt = match full_path.extension() {
-        Some(lua_ext) if lua_ext == "lua" => full_path.file_stem(),
-        _ => return Err(String::from("The lua file extension is missing.")),
-    };
+        let format = match enclosed_name.extension() {
+            Some(osstr) => NonEmptyString::new(osstr.to_string_lossy().to_string())
+                .map_err(|_| format!("File extension missing."))?,
+            None => return Err(format!("File extension missing.")),
+        };
 
-    let file_stem_osstr = match file_stem_opt {
-        Some(osstr) => osstr,
-        None => return Err(String::from("The file name is missing.")),
-    };
+        let enclosed_stem = Path::new(
+            enclosed_name
+                .file_stem()
+                .ok_or_else(|| format!("File stem missing."))?,
+        );
 
-    let path = Path::new(file_stem_osstr);
+        let name = match enclosed_stem.file_stem() {
+            Some(osstr) => NonEmptyString::new(osstr.to_string_lossy().to_string())
+                .map_err(|_| format!("File name missing."))?,
+            None => return Err(format!("File name missing.")),
+        };
 
-    let name = match path.file_stem() {
-        Some(osstr) => match NonEmptyString::new(osstr.to_string_lossy().to_string()) {
-            Ok(non_empty) => non_empty,
-            Err(_) => return Err(String::from("The file name is missing.")),
-        },
-        None => return Err(String::from("The file name is missing.")),
-    };
+        let extension = match enclosed_stem.extension() {
+            Some(osstr) => NonEmptyString::new(osstr.to_string_lossy().to_string())
+                .map_err(|_| format!("File extension missing."))?,
+            None => return Err(format!("File extension missing.")),
+        };
 
-    let extension = match path.extension() {
-        Some(osstr) => match NonEmptyString::new(osstr.to_string_lossy().to_string()) {
-            Ok(non_empty) => non_empty,
-            Err(_) => return Err(String::from("The file extension is missing.")),
-        },
-        None => return Err(String::from("The file extension is missing.")),
-    };
+        let mut buf = String::new();
+        let content = match io::Read::read_to_string(file, &mut buf) {
+            Ok(_n) => match NonEmptyString::new(buf) {
+                Ok(str) => str,
+                Err(_) => return Err(format!("File is empty")),
+            },
+            Err(err) => return Err(err.to_string()),
+        };
 
-    Ok(NameExt { name, extension })
-}
-
-fn read_chunk(entry: &mut Entry<File>) -> Result<NonEmptyString, String> {
-    let mut buf = String::new();
-    if let Err(err) = entry.read_to_string(&mut buf) {
-        return Err(err.to_string());
+        Ok(Self {
+            format,
+            extension,
+            name,
+            content,
+        })
     }
-    match NonEmptyString::new(buf) {
-        Ok(non_empty) => Ok(non_empty),
-        Err(_) => Err(String::from("No date was read.")),
-    }
-}
-
-fn read_chunk_lua<T>(entry: &mut Entry<File>, name: NonEmptyString) -> Result<T, String>
-where
-    T: FromLua,
-{
-    T::from_chunk(name, read_chunk(entry)?.as_str()).map_err(|err| err.to_string())
 }

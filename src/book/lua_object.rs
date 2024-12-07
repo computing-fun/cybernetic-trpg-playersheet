@@ -1,8 +1,6 @@
-use std::{error::Error, fmt::Display, fs, io, path::Path};
-
 use mlua::{
-    AsChunk, FromLuaMulti, Function, IntoLua, IntoLuaMulti, Lua, LuaOptions, Result as LuaResult,
-    StdLib,
+    AsChunk, FromLua, FromLuaMulti, Function, IntoLua, IntoLuaMulti, Lua, LuaOptions,
+    Result as LuaResult, StdLib,
 };
 use non_empty_string::NonEmptyString;
 
@@ -15,6 +13,21 @@ pub struct LuaObject {
 impl LuaObject {
     pub fn name(&self) -> &NonEmptyString {
         &self.name
+    }
+
+    pub fn get<T>(&self, key: impl IntoLua) -> LuaResult<T>
+    where
+        T: FromLua,
+    {
+        self.lua.globals().get::<T>(key)
+    }
+
+    pub fn get_non_empty_strings(&self, key: impl IntoLua) -> LuaResult<Vec<NonEmptyString>> {
+        Ok(self
+            .get::<Vec<String>>(key)?
+            .into_iter()
+            .flat_map(NonEmptyString::new)
+            .collect())
     }
 
     pub fn call<T>(&self, key: impl IntoLua, args: impl IntoLuaMulti) -> LuaResult<T>
@@ -37,18 +50,15 @@ impl LuaObject {
     }
 }
 
-pub trait FromLua: Sized {
-    fn from_chunk<'a>(name: NonEmptyString, chunk: impl AsChunk<'a>) -> LuaResult<Self>;
-    fn from_file<P>(path: P) -> Result<Self, IOLuaError>
-    where
-        P: AsRef<Path>;
+pub trait FromLuaChunk: Sized {
+    fn from_lua_chunk<'a>(name: NonEmptyString, chunk: impl AsChunk<'a>) -> LuaResult<Self>;
 }
 
-impl<T> FromLua for T
+impl<T> FromLuaChunk for T
 where
     T: From<LuaObject>,
 {
-    fn from_chunk<'a>(name: NonEmptyString, chunk: impl AsChunk<'a>) -> LuaResult<Self> {
+    fn from_lua_chunk<'a>(name: NonEmptyString, chunk: impl AsChunk<'a>) -> LuaResult<Self> {
         let options = LuaOptions::new();
         let libs = StdLib::ALL_SAFE;
         let lua = Lua::new_with(libs, options)?;
@@ -56,44 +66,16 @@ where
         lua.load(chunk).exec()?;
         Ok(T::from(LuaObject { name, lua }))
     }
-
-    fn from_file<P>(path: P) -> Result<Self, IOLuaError>
-    where
-        P: AsRef<Path>,
-    {
-        let path = path.as_ref();
-
-        let file_name = path.file_name().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("Failed to extract file name from path: {:?}", path),
-            )
-        })?;
-
-        let name =
-            NonEmptyString::new(file_name.to_string_lossy().to_string()).map_err(|_err| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!(
-                        "Extracted file name is empty or invalid: {:?}",
-                        file_name.to_string_lossy()
-                    ),
-                )
-            })?;
-
-        let chunk = fs::read(path)?;
-        Ok(Self::from_chunk(name, chunk)?)
-    }
 }
 
 #[derive(Debug)]
 pub enum IOLuaError {
-    IO(io::Error),
+    IO(std::io::Error),
     Lua(mlua::Error),
 }
 
-impl Error for IOLuaError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl std::error::Error for IOLuaError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             IOLuaError::IO(error) => error.source(),
             IOLuaError::Lua(error) => error.source(),
@@ -101,7 +83,7 @@ impl Error for IOLuaError {
     }
 }
 
-impl Display for IOLuaError {
+impl std::fmt::Display for IOLuaError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IOLuaError::IO(error) => error.fmt(f),
@@ -110,8 +92,8 @@ impl Display for IOLuaError {
     }
 }
 
-impl From<io::Error> for IOLuaError {
-    fn from(value: io::Error) -> Self {
+impl From<std::io::Error> for IOLuaError {
+    fn from(value: std::io::Error) -> Self {
         IOLuaError::IO(value)
     }
 }

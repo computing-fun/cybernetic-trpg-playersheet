@@ -23,3 +23,9 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+# VSCode
+/.vscode
+
+# base_game.zip file can be made from the /base_game dir.
+base_game.zip
