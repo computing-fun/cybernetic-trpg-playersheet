@@ -1,11 +1,5 @@
-Description = [[
-Shadowjacks are ruthless combatants who thrive in darkness, delivering devastating, one-sided strikes that often end a fight with a single blow. Their unparalleled mastery of the C-Net and shadowy tactics makes them formidable both in the digital realm and on the battlefield. Feared as assassins and hackers, Shadowjacks are a force to be reckoned with, slipping through defenses with ease and eliminating targets with chilling precision. Their reputation for operating in the shadows has earned them the undivided attention of law enforcement, who regard them as both a threat to security and a symbol of unrelenting efficiency.
-
-Astralic Types: Dark & Digital
-Saving Throws: Ingenuity & Influence
-Skills: You gain mastery in 1 Ingenuity skill and two other skills of your choice
-Weapon Mastery: Gain mastery in daggers and one weapon of your choice
-]]
+Description =
+"Shadowjacks are ruthless combatants who thrive in darkness, delivering devastating, one-sided strikes that often end a fight with a single blow. Their unparalleled mastery of the C-Net and shadowy tactics makes them formidable both in the digital realm and on the battlefield. Feared as assassins and hackers, Shadowjacks are a force to be reckoned with, slipping through defenses with ease and eliminating targets with chilling precision. Their reputation for operating in the shadows has earned them the undivided attention of law enforcement, who regard them as both a threat to security and a symbol of unrelenting efficiency."
 
 AstralicTypes = { "Dark", "Digital" }
 

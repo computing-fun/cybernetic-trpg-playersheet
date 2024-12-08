@@ -1,11 +1,5 @@
-Description = [[
-Spirit Brewers are heavy drinkers and followers of the Astralic granted by spirits. These spirits dance happily and cheerfully around the Spirit Brewer, but will turn spiteful and meticulously dastardly towards any enemy of the Spirit Brewer.
-
-Astralic Types: Fire & Earth
-Saving Throws: Grit & Astralic
-Skills: You gain mastery in two skills of your choice
-Weapon Mastery: Gain mastery in unarmed strikes and one weapon of your choice
-]]
+Description =
+"Spirit Brewers are heavy drinkers and followers of the Astralic granted by spirits. These spirits dance happily and cheerfully around the Spirit Brewer, but will turn spiteful and meticulously dastardly towards any enemy of the Spirit Brewer."
 
 AstralicTypes = { "Fire", "Earth" }
 
