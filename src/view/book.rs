@@ -4,9 +4,8 @@ use gtk4::{
     glib::ExitCode, prelude::*, Application, ApplicationWindow, Box, Button, ListBox, ListBoxRow,
     Orientation, ScrolledWindow, Separator,
 };
-use non_empty_string::NonEmptyString;
 
-use crate::book::Book;
+use crate::sheet::book::Book;
 
 use super::{basic_lable, name_tag_content, APP_ID};
 
@@ -79,7 +78,7 @@ pub fn full(book: Rc<Book>) -> Option<()> {
 
         helper.add_anchor("Class");
         for class in &book.class {
-            let fields_maker = |name, details: Vec<NonEmptyString>| {
+            let fields_maker = |name, details: Vec<std::boxed::Box<str>>| {
                 let boxed = Box::new(Orientation::Horizontal, 30);
                 boxed.append(&basic_lable(name));
                 boxed.append(&basic_lable(details.join(",  ").as_str()));
@@ -97,7 +96,7 @@ pub fn full(book: Rc<Book>) -> Option<()> {
             details.append(&fields_maker("Saving Throws".into(), class.saving_throws()));
             details.append(&fields_maker("Skills".into(), class.skills(0)));
 
-            content.append(&name_tag_content(class.name().as_str(), "Class", &details));
+            content.append(&name_tag_content(class.name(), "Class", &details));
             content.append(&Separator::new(Orientation::Vertical));
         }
 
@@ -106,14 +105,12 @@ pub fn full(book: Rc<Book>) -> Option<()> {
             let details = basic_lable(balance.description().as_str());
             details.set_hexpand(true);
 
-            content.append(&name_tag_content(
-                balance.name().as_str(),
-                "Balance",
-                &details,
-            ));
+            content.append(&name_tag_content(balance.name(), "Balance", &details));
 
             content.append(&Separator::new(Orientation::Vertical));
         }
+
+        helper.add_anchor("Cybernetic");
 
         window.show();
     });

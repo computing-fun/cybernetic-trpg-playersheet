@@ -2,8 +2,10 @@
 
 use std::{path::PathBuf, process::ExitCode, rc::Rc};
 
-mod book;
+use sheet::book::{self, Book, BookMakerError};
+
 mod dialog;
+mod sheet;
 mod view;
 
 fn main() -> ExitCode {
@@ -42,11 +44,11 @@ fn get_book_path() -> Option<BookPath> {
     return None;
 }
 
-fn get_book() -> Option<Result<book::Book, book::ZipBookError>> {
+fn get_book() -> Option<Result<Book, BookMakerError>> {
     match get_book_path()? {
-        BookPath::Arg(path_buf) => Some(book::Book::try_from(path_buf)),
+        BookPath::Arg(path_buf) => Some(Book::try_from(path_buf)),
         BookPath::Dialog(open_or_create_book) => match open_or_create_book {
-            dialog::OpenOrCreateBook::Open(path_buf) => Some(book::Book::try_from(path_buf)),
+            dialog::OpenOrCreateBook::Open(path_buf) => Some(Book::try_from(path_buf)),
             dialog::OpenOrCreateBook::Create(path_buf) => Some(book::write_default_book(&path_buf)),
         },
     }
