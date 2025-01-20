@@ -22,14 +22,8 @@ function Health(class_level)
     return class_level * 6
 end
 
-function ArmorRating(class_level)
-    return 0
-end
-
 function SpellLevel(class_level)
-    if class_level == 0 then
-        return 0
-    elseif class_level >= 1 and class_level <= 2 then
+    if class_level >= 1 and class_level <= 2 then
         return 1 -- Level 1 = 1st level spells
     elseif class_level >= 3 and class_level <= 4 then
         return 2 -- Level 3 = 2nd level spells
@@ -47,11 +41,5 @@ function SpellLevel(class_level)
         return 8 -- Level 15 = 8th level spells
     elseif class_level >= 17 then
         return 9 -- Level 17+ = 9th level spells
-    else
-        return 0 -- Fallback
     end
-end
-
-function Skills(class_level)
-    return {}
 end

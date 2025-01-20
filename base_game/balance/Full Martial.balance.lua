@@ -19,10 +19,6 @@ function ArmorRating(class_level)
     return 10
 end
 
-function SpellLevel(class_level)
-    return 0
-end
-
 function Skills(class_level)
     local skill_table = { "Weapon Mastery", "Weapon Mastery" }
     if class_level >= 5 then

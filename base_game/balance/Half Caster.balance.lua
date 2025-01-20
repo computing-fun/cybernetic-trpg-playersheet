@@ -37,8 +37,6 @@ function SpellLevel(class_level)
         return 4 -- Level 13-16 = 4th level spells
     elseif class_level >= 17 then
         return 5 -- Level 17+ = 5th level spells
-    else
-        return 0 -- Fallback
     end
 end
 

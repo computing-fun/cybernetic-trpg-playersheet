@@ -5,7 +5,7 @@ use gtk4::{
     Orientation, ScrolledWindow, Separator,
 };
 
-use crate::sheet::book::Book;
+use crate::sheet::book::{Book, Page};
 
 use super::{basic_lable, name_tag_content, APP_ID};
 
@@ -77,7 +77,7 @@ pub fn full(book: Rc<Book>) -> Option<()> {
         };
 
         helper.add_anchor("Class");
-        for class in &book.class {
+        for class in book.class.iter() {
             let fields_maker = |name, details: Vec<std::boxed::Box<str>>| {
                 let boxed = Box::new(Orientation::Horizontal, 30);
                 boxed.append(&basic_lable(name));
@@ -88,7 +88,7 @@ pub fn full(book: Rc<Book>) -> Option<()> {
             let details = Box::new(Orientation::Vertical, 30);
             details.set_hexpand(true);
 
-            details.append(&basic_lable(class.description().as_str()));
+            details.append(&basic_lable(&class.description()));
             details.append(&fields_maker(
                 "Astralic Types".into(),
                 class.astralic_types(),
@@ -101,8 +101,8 @@ pub fn full(book: Rc<Book>) -> Option<()> {
         }
 
         helper.add_anchor("Balance");
-        for balance in &book.balance {
-            let details = basic_lable(balance.description().as_str());
+        for balance in book.balance.iter() {
+            let details = basic_lable(&balance.description());
             details.set_hexpand(true);
 
             content.append(&name_tag_content(balance.name(), "Balance", &details));

@@ -44,7 +44,7 @@ fn get_book_path() -> Option<BookPath> {
     return None;
 }
 
-fn get_book() -> Option<Result<Book, BookMakerError>> {
+fn get_book() -> Option<Result<Book<'static>, BookMakerError>> {
     match get_book_path()? {
         BookPath::Arg(path_buf) => Some(Book::try_from(path_buf)),
         BookPath::Dialog(open_or_create_book) => match open_or_create_book {
